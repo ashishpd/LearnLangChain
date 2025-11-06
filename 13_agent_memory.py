@@ -15,8 +15,8 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType, Tool
-from langchain.memory import ConversationBufferMemory
-from langchain.memory.chat_message_histories import ChatMessageHistory
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_community.chat_message_histories import ChatMessageHistory
 
 # Load environment variables
 load_dotenv()
