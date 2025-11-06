@@ -22,7 +22,7 @@ from langchain.memory import (
     ConversationBufferWindowMemory,
     ConversationTokenBufferMemory,
 )
-from langchain.chains import ConversationChain
+from langchain_classic.chains import ConversationChain
 from langchain_core.prompts import PromptTemplate
 
 # Load environment variables

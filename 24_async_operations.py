@@ -124,7 +124,7 @@ asyncio.run(process_multiple_queries())
 print("=== Async with Chains ===")
 # Async chains
 
-from langchain.chains import LLMChain
+from langchain_classic.chains import LLMChain
 
 chain = LLMChain(
     llm=llm,

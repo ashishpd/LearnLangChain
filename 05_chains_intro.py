@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables
 load_dotenv()
@@ -30,18 +30,19 @@ llm = AzureChatOpenAI(
 print("=== What is a Chain? ===")
 print("A chain is a sequence of operations that can be executed together.\n")
 
-print("=== Basic LLMChain ===")
-# LLMChain is the simplest chain - it combines a prompt and LLM
+print("=== Basic Chain (LCEL) ===")
+# Modern LangChain uses LCEL (LangChain Expression Language)
+# Chain is created by piping prompt | llm | parser
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a helpful assistant."),
     ("human", "Explain {topic} in simple terms."),
 ])
 
-# Create a chain by combining prompt template and LLM
-chain = LLMChain(llm=llm, prompt=prompt)
+# Create a chain using LCEL syntax (prompt | llm | parser)
+chain = prompt | llm | StrOutputParser()
 
-# Run the chain with input variables
-result = chain.run(topic="quantum computing")
+# Invoke the chain with input variables
+result = chain.invoke({"topic": "quantum computing"})
 print(f"Topic: quantum computing")
 print(f"Explanation: {result}\n")
 
@@ -52,7 +53,7 @@ multi_prompt = ChatPromptTemplate.from_messages([
     ("human", "Review this {language} code for {aspect}:\n\n{code}"),
 ])
 
-review_chain = LLMChain(llm=llm, prompt=multi_prompt)
+review_chain = multi_prompt | llm | StrOutputParser()
 
 code_sample = """
 def calculate_total(items):
@@ -62,29 +63,29 @@ def calculate_total(items):
     return total
 """
 
-result = review_chain.run(
-    language="Python",
-    aspect="performance and readability",
-    code=code_sample
-)
+result = review_chain.invoke({
+    "language": "Python",
+    "aspect": "performance and readability",
+    "code": code_sample
+})
 print(f"Code Review Result:\n{result}\n")
 
 print("=== Using invoke() Method ===")
-# Chains support both run() and invoke() methods
-# invoke() returns more detailed information
+# invoke() is the standard method for running chains
+# It returns the parsed output directly (string when using StrOutputParser)
 prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a {length} {type} story about {topic}."),
 ])
 
-story_chain = LLMChain(llm=llm, prompt=prompt)
+story_chain = prompt | llm | StrOutputParser()
 
-# Using invoke() returns a dictionary with more metadata
+# Using invoke() returns the parsed string output
 result = story_chain.invoke({
     "length": "short",
     "type": "science fiction",
     "topic": "time travel"
 })
-print(f"Story result: {result['text']}\n")
+print(f"Story result: {result}\n")
 
 print("=== Chain with Different Temperatures ===")
 # You can create chains with different LLM configurations
@@ -102,20 +103,20 @@ factual_llm = AzureChatOpenAI(
 creative_prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a creative story about {topic}."),
 ])
-creative_chain = LLMChain(llm=creative_llm, prompt=creative_prompt)
+creative_chain = creative_prompt | creative_llm | StrOutputParser()
 
 # Factual chain for explanations
 factual_prompt = ChatPromptTemplate.from_messages([
     ("human", "Explain {topic} accurately and factually."),
 ])
-factual_chain = LLMChain(llm=factual_llm, prompt=factual_prompt)
+factual_chain = factual_prompt | factual_llm | StrOutputParser()
 
 print("Creative response:")
-creative_result = creative_chain.run(topic="space exploration")
+creative_result = creative_chain.invoke({"topic": "space exploration"})
 print(f"{creative_result}\n")
 
 print("Factual response:")
-factual_result = factual_chain.run(topic="space exploration")
+factual_result = factual_chain.invoke({"topic": "space exploration"})
 print(f"{factual_result}\n")
 
 print("=== Reusable Chains ===")
@@ -124,7 +125,7 @@ greeting_prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a {tone} greeting for {occasion}."),
 ])
 
-greeting_chain = LLMChain(llm=llm, prompt=greeting_prompt)
+greeting_chain = greeting_prompt | llm | StrOutputParser()
 
 # Reuse the same chain with different inputs
 greetings = [
@@ -135,7 +136,7 @@ greetings = [
 
 print("Multiple greetings using the same chain:")
 for greeting_input in greetings:
-    result = greeting_chain.run(**greeting_input)
+    result = greeting_chain.invoke(greeting_input)
     print(f"  {greeting_input['tone']} for {greeting_input['occasion']}: {result}")
 
 print("\nTutorial complete! You've learned the basics of LangChain chains.")

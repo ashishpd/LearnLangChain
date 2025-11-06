@@ -17,7 +17,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks import StdOutCallbackHandler
 from typing import Any, Dict, List
-from langchain.chains import LLMChain
+from langchain_classic.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate
 
 # Load environment variables

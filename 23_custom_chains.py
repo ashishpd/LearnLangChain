@@ -14,9 +14,9 @@ Prerequisites:
 import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
-from langchain.chains.base import Chain
+from langchain_classic.chains.base import Chain
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
+from langchain_classic.chains import LLMChain
 from typing import Dict, List, Optional
 
 # Load environment variables
@@ -276,7 +276,7 @@ analysis_prompt = ChatPromptTemplate.from_messages([
 analysis_chain = LLMChain(llm=llm, prompt=analysis_prompt)
 
 # Compose them
-from langchain.chains import SequentialChain
+from langchain_classic.chains import SequentialChain
 
 composed = SequentialChain(
     chains=[preprocess, analysis_chain],

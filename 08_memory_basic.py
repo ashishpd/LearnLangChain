@@ -15,7 +15,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationChain
+from langchain_classic.chains import ConversationChain
 from langchain_core.prompts import PromptTemplate
 
 # Load environment variables

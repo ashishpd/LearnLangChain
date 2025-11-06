@@ -96,7 +96,7 @@ print(f"Complete text collected: {custom_handler.get_complete_text()}\n")
 print("=== Streaming with Chains ===")
 # Streaming works with chains too
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
+from langchain_classic.chains import LLMChain
 
 prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a {length} explanation about {topic}."),

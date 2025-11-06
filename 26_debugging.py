@@ -15,7 +15,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain, SequentialChain
+from langchain_classic.chains import LLMChain, SequentialChain
 from langchain.callbacks import StdOutCallbackHandler
 
 # Load environment variables
