@@ -15,7 +15,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables
 load_dotenv()
@@ -61,7 +61,7 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "Explain {topic} in simple terms."),
 ])
 
-chain = LLMChain(llm=llm, prompt=prompt)
+chain = prompt | llm | StrOutputParser()
 
 test_cases = [
     {"topic": "Python", "expected_keywords": ["programming", "language"]},
@@ -70,7 +70,7 @@ test_cases = [
 
 print("Testing LLM responses:")
 for test in test_cases:
-    response = chain.run(topic=test["topic"])
+    response = chain.invoke({"topic": test["topic"]})
     
     print(f"\nTopic: {test['topic']}")
     print(f"Response: {response[:100]}...")
@@ -125,8 +125,8 @@ for temp in temperatures:
         azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
         temperature=temp,
     )
-    test_chain = LLMChain(llm=test_llm, prompt=prompt)
-    response = test_chain.run(topic=topic)
+    test_chain = prompt | test_llm | StrOutputParser()
+    response = test_chain.invoke({"topic": topic})
     
     criteria = {
         "min_length": 10,

@@ -124,14 +124,11 @@ asyncio.run(process_multiple_queries())
 print("=== Async with Chains ===")
 # Async chains
 
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
-chain = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Explain {concept} in {style} style."),
-    ]),
-)
+chain = ChatPromptTemplate.from_messages([
+    ("human", "Explain {concept} in {style} style."),
+]) | llm | StrOutputParser()
 
 async def run_chain_async():
     """Run chain async"""

@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 import requests
 from bs4 import BeautifulSoup
 from typing import Optional
@@ -105,13 +105,13 @@ Query: {query}
 Extract relevant information based on the query:"""),
     ])
     
-    chain = LLMChain(llm=llm, prompt=prompt)
+    chain = prompt | llm | StrOutputParser()
     
     # Truncate text if too long
     if len(text) > 3000:
         text = text[:3000] + "..."
     
-    result = chain.run(text=text, query=query)
+    result = chain.invoke({"text": text, "query": query})
     return result
 
 print("=== Web Scraping Agent ===")
@@ -190,16 +190,16 @@ class WebScrapingPipeline:
         summary_prompt = ChatPromptTemplate.from_messages([
             ("human", "Summarize this content in 2-3 sentences:\n\n{content}"),
         ])
-        summary_chain = LLMChain(llm=self.llm, prompt=summary_prompt)
-        summary = summary_chain.run(content=content[:2000])  # Limit length
+        summary_chain = summary_prompt | self.llm | StrOutputParser()
+        summary = summary_chain.invoke({"content": content[:2000]})  # Limit length
         
         # Step 3: Analyze
         print("Analyzing content...")
         analysis_prompt = ChatPromptTemplate.from_messages([
             ("human", "Based on this content:\n\n{content}\n\nAnswer: {query}"),
         ])
-        analysis_chain = LLMChain(llm=self.llm, prompt=analysis_prompt)
-        analysis = analysis_chain.run(content=content[:2000], query=analysis_query)
+        analysis_chain = analysis_prompt | self.llm | StrOutputParser()
+        analysis = analysis_chain.invoke({"content": content[:2000], "query": analysis_query})
         
         return {
             "url": url,

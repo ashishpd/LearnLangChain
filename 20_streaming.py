@@ -96,19 +96,16 @@ print(f"Complete text collected: {custom_handler.get_complete_text()}\n")
 print("=== Streaming with Chains ===")
 # Streaming works with chains too
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
 prompt = ChatPromptTemplate.from_messages([
     ("human", "Write a {length} explanation about {topic}."),
 ])
 
-chain = LLMChain(
-    llm=streaming_llm_custom,
-    prompt=prompt,
-)
+chain = prompt | streaming_llm_custom | StrOutputParser()
 
 print("Streaming chain example:")
-result = chain.run(length="brief", topic="artificial intelligence")
+result = chain.invoke({"length": "brief", "topic": "artificial intelligence"})
 print("\n")
 
 print("=== Streaming Best Practices ===")

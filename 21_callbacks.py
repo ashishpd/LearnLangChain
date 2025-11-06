@@ -17,8 +17,8 @@ from langchain_openai import AzureChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks import StdOutCallbackHandler
 from typing import Any, Dict, List
-from langchain_classic.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables
 load_dotenv()
@@ -162,14 +162,14 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "Explain {topic} in {style} style."),
 ])
 
-chain = LLMChain(
-    llm=llm,
-    prompt=prompt,
-    callbacks=[logging_handler],  # Add callback to chain
-)
+chain = prompt | llm | StrOutputParser()
 
 print("Chain with callback:")
-result = chain.run(topic="Python programming", style="simple")
+# For callbacks with LCEL, use invoke with config
+result = chain.invoke(
+    {"topic": "Python programming", "style": "simple"},
+    config={"callbacks": [logging_handler]}  # Add callback via config
+)
 print(f"\nResult: {result}\n")
 
 print("=== Error Handling Callback ===")

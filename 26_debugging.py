@@ -15,7 +15,8 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain, SequentialChain
+from langchain_core.output_parsers import StrOutputParser
+from langchain_classic.chains import SequentialChain
 from langchain.callbacks import StdOutCallbackHandler
 
 # Load environment variables
@@ -44,14 +45,14 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "Explain {topic} briefly."),
 ])
 
-chain = LLMChain(
-    llm=llm,
-    prompt=prompt,
-    verbose=True,  # Enable verbose output
-)
+chain = prompt | llm | StrOutputParser()
 
 print("Running chain with verbose=True:")
-result = chain.run(topic="Python")
+# For verbose output with LCEL, use callbacks
+result = chain.invoke(
+    {"topic": "Python"},
+    config={"callbacks": [StdOutCallbackHandler()]}
+)
 print(f"\nResult: {result}\n")
 
 print("=== Step-by-Step Debugging ===")
@@ -72,7 +73,7 @@ print(f"LLM response: {llm_response.content[:100]}...")
 
 # Test full chain
 print("\n3. Test full chain:")
-chain_result = chain.run(**test_input)
+chain_result = chain.invoke(test_input)
 print(f"Chain result: {chain_result}\n")
 
 print("=== Debugging with Callbacks ===")
@@ -91,14 +92,13 @@ class DebugCallback(StdOutCallbackHandler):
 
 debug_callback = DebugCallback()
 
-debug_chain = LLMChain(
-    llm=llm,
-    prompt=prompt,
-    callbacks=[debug_callback],
-)
+debug_chain = prompt | llm | StrOutputParser()
 
 print("Debugging with callbacks:")
-result = debug_chain.run(topic="LangChain")
+result = debug_chain.invoke(
+    {"topic": "LangChain"},
+    config={"callbacks": [debug_callback]}
+)
 print()
 
 print("=== Common Issues and Solutions ===")
@@ -150,49 +150,52 @@ def validate_chain_inputs(chain, inputs):
     return True
 
 # Test validation
-test_chain = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Process: {input}"),
-    ]),
-)
+test_prompt = ChatPromptTemplate.from_messages([
+    ("human", "Process: {input}"),
+])
+test_chain = test_prompt | llm | StrOutputParser()
 
 print("Input validation:")
-valid = validate_chain_inputs(test_chain, {"input": "test"})
-if valid:
-    result = test_chain.run(input="test")
+# LCEL chains don't have input_keys, so we validate the prompt instead
+try:
+    test_prompt.format_messages(input="test")  # Validate prompt can format
+    result = test_chain.invoke({"input": "test"})
     print(f"Result: {result}\n")
+except Exception as e:
+    print(f"Validation error: {e}\n")
 
-invalid = validate_chain_inputs(test_chain, {"wrong_key": "test"})
-print()
+# Test with wrong key
+try:
+    test_chain.invoke({"wrong_key": "test"})
+except Exception as e:
+    print(f"Expected error with wrong key: {type(e).__name__}\n")
 
 print("=== Debugging Sequential Chains ===")
 # Debug multi-step chains
 
-chain1 = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Summarize: {text}"),
-    ]),
-    output_key="summary",
-    verbose=True,
-)
+chain1_prompt = ChatPromptTemplate.from_messages([
+    ("human", "Summarize: {text}"),
+])
+chain1 = chain1_prompt | llm | StrOutputParser()
 
-chain2 = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Analyze this summary: {summary}"),
-    ]),
-    output_key="analysis",
-    verbose=True,
-)
+chain2_prompt = ChatPromptTemplate.from_messages([
+    ("human", "Analyze this summary: {summary}"),
+])
+chain2 = chain2_prompt | llm | StrOutputParser()
 
-sequential = SequentialChain(
-    chains=[chain1, chain2],
-    input_variables=["text"],
-    output_variables=["summary", "analysis"],
-    verbose=True,  # Verbose mode for sequential chain
-)
+# Note: SequentialChain requires LLMChain instances, not LCEL chains
+# For LCEL, use RunnablePassthrough for sequential operations
+# This is a simplified example - full LCEL sequential patterns use different syntax
+from langchain_core.runnables import RunnablePassthrough
+from typing import Dict
+
+def summarize_then_analyze(inputs: Dict) -> Dict:
+    """Sequential processing with LCEL"""
+    summary = chain1.invoke(inputs)
+    analysis = chain2.invoke({"summary": summary})
+    return {"summary": summary, "analysis": analysis}
+
+sequential = summarize_then_analyze
 
 print("Debugging sequential chain:")
 result = sequential({"text": "LangChain is a framework for building LLM applications."})
@@ -205,7 +208,7 @@ def safe_chain_execution(chain, inputs):
     """Execute chain with error handling and debugging"""
     try:
         print(f"[DEBUG] Attempting to execute chain with inputs: {inputs}")
-        result = chain.run(**inputs)
+        result = chain.invoke(inputs)
         print(f"[DEBUG] Success: {result}")
         return result
     except KeyError as e:

@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from langchain_classic.chains import LLMChain, SequentialChain, TransformChain
 from langchain_classic.chains.base import Chain
 from typing import Dict, List
@@ -135,32 +136,24 @@ def route_based_on_length(inputs: Dict[str, str]) -> str:
         return "brief"  # Route to brief analysis
 
 # Create different chains for different routes
-brief_chain = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Give a brief analysis: {text}"),
-    ]),
-    output_key="analysis",
-)
+brief_chain = ChatPromptTemplate.from_messages([
+    ("human", "Give a brief analysis: {text}"),
+]) | llm | StrOutputParser()
 
-detailed_chain = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Give a detailed, comprehensive analysis: {text}"),
-    ]),
-    output_key="analysis",
-)
+detailed_chain = ChatPromptTemplate.from_messages([
+    ("human", "Give a detailed, comprehensive analysis: {text}"),
+]) | llm | StrOutputParser()
 
 print("Conditional routing (conceptual):")
 short_text = "Python is good."
 long_text = "Python is a high-level programming language known for its simplicity and readability. " * 3
 
 print(f"Short text -> brief analysis:")
-result = brief_chain.run(text=short_text)
+result = brief_chain.invoke({"text": short_text})
 print(f"  {result}\n")
 
 print(f"Long text -> detailed analysis:")
-result = detailed_chain.run(text=long_text[:200])
+result = detailed_chain.invoke({"text": long_text[:200]})
 print(f"  {result[:150]}...\n")
 
 print("=== Error Recovery Pattern ===")
@@ -168,18 +161,15 @@ print("=== Error Recovery Pattern ===")
 def safe_chain_execution(chain, inputs):
     """Execute chain with error recovery"""
     try:
-        return chain.run(**inputs)
+        return chain.invoke(inputs)
     except Exception as e:
         print(f"Error in chain: {e}")
         return f"Error occurred: {str(e)}"
 
 # Example with potential error
-error_chain = LLMChain(
-    llm=llm,
-    prompt=ChatPromptTemplate.from_messages([
-        ("human", "Process this: {input}"),
-    ]),
-)
+error_chain = ChatPromptTemplate.from_messages([
+    ("human", "Process this: {input}"),
+]) | llm | StrOutputParser()
 
 print("Error recovery example:")
 result = safe_chain_execution(error_chain, {"input": "test input"})
@@ -189,6 +179,9 @@ print("=== Chain Composition Pattern ===")
 # Compose chains into reusable components
 
 # Component 1: Text processing
+# Note: These chains are used in SequentialChain which requires LLMChain
+# For standalone use, convert to LCEL: prompt | llm | StrOutputParser()
+# Keeping as LLMChain for SequentialChain compatibility
 text_process = LLMChain(
     llm=llm,
     prompt=ChatPromptTemplate.from_messages([

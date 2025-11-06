@@ -19,7 +19,7 @@ from langchain.agents import create_sql_agent
 from langchain.agents.agent_toolkits import create_sql_agent
 from langchain.sql_database import SQLDatabase
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables
 load_dotenv()
@@ -70,9 +70,9 @@ Rules:
         ("human", "Generate a SQL query for: {query}"),
     ])
     
-    chain = LLMChain(llm=llm, prompt=prompt)
+    chain = prompt | llm | StrOutputParser()
     
-    result = chain.run(schema=table_schema, query=natural_language_query)
+    result = chain.invoke({"schema": table_schema, "query": natural_language_query})
     return result.strip()
 
 # Example schema
@@ -115,8 +115,8 @@ Results Summary: {results}
 Provide analysis and insights:"""),
     ])
     
-    chain = LLMChain(llm=llm, prompt=prompt)
-    analysis = chain.run(query=query, results=results_summary)
+    chain = prompt | llm | StrOutputParser()
+    analysis = chain.invoke({"query": query, "results": results_summary})
     return analysis
 
 # Example
@@ -149,8 +149,8 @@ def explain_schema(table_schema: str) -> str:
         ("human", "Schema:\n{schema}\n\nExplain the structure:"),
     ])
     
-    chain = LLMChain(llm=llm, prompt=prompt)
-    explanation = chain.run(schema=table_schema)
+    chain = prompt | llm | StrOutputParser()
+    explanation = chain.invoke({"schema": table_schema})
     return explanation
 
 print("Schema explanation example:")

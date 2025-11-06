@@ -15,7 +15,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_classic.chains import LLMChain, SequentialChain
+from langchain_core.output_parsers import StrOutputParser
 from langchain_classic.chains.router.llm_router import LLMRouterChain, RouterOutputParser
 from langchain_classic.chains.router.multi_prompt_prompt import MULTI_PROMPT_ROUTER_TEMPLATE
 
@@ -36,36 +36,36 @@ technical_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a technical expert. Provide detailed technical explanations."),
     ("human", "{query}"),
 ])
-technical_chain = LLMChain(llm=llm, prompt=technical_prompt)
+technical_chain = technical_prompt | llm | StrOutputParser()
 
 simple_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a teacher. Explain concepts simply for beginners."),
     ("human", "{query}"),
 ])
-simple_chain = LLMChain(llm=llm, prompt=simple_prompt)
+simple_chain = simple_prompt | llm | StrOutputParser()
 
 creative_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a creative writer. Provide engaging, creative responses."),
     ("human", "{query}"),
 ])
-creative_chain = LLMChain(llm=llm, prompt=creative_prompt)
+creative_chain = creative_prompt | llm | StrOutputParser()
 
 def route_query(query: str, style: str = "auto") -> str:
     """Route query to appropriate chain based on style"""
     if style == "technical":
-        return technical_chain.run(query)
+        return technical_chain.invoke({"query": query})
     elif style == "simple":
-        return simple_chain.run(query)
+        return simple_chain.invoke({"query": query})
     elif style == "creative":
-        return creative_chain.run(query)
+        return creative_chain.invoke({"query": query})
     else:
         # Auto-detect based on keywords
         if any(word in query.lower() for word in ["explain", "how does", "what is", "define"]):
-            return simple_chain.run(query)
+            return simple_chain.invoke({"query": query})
         elif any(word in query.lower() for word in ["architecture", "implementation", "algorithm"]):
-            return technical_chain.run(query)
+            return technical_chain.invoke({"query": query})
         else:
-            return creative_chain.run(query)
+            return creative_chain.invoke({"query": query})
 
 print("Routing 'Explain quantum computing':")
 result = route_query("Explain quantum computing", style="simple")
@@ -111,7 +111,7 @@ def route_with_llm(query: str):
     
     # Execute the appropriate chain
     if destination in destination_chains:
-        result = destination_chains[destination].run(query)
+        result = destination_chains[destination].invoke({"query": query})
         print(f"Response: {result}\n")
         return result
     else:
@@ -128,29 +128,29 @@ print("=== Advanced Routing with Multiple Criteria ===")
 code_review_prompt = ChatPromptTemplate.from_messages([
     ("human", "Review this {language} code:\n\n{code}"),
 ])
-code_review_chain = LLMChain(llm=llm, prompt=code_review_prompt)
+code_review_chain = code_review_prompt | llm | StrOutputParser()
 
 explanation_prompt = ChatPromptTemplate.from_messages([
     ("human", "Explain {concept} in {style} style."),
 ])
-explanation_chain = LLMChain(llm=llm, prompt=explanation_prompt)
+explanation_chain = explanation_prompt | llm | StrOutputParser()
 
 def smart_router(query_type: str, **kwargs):
     """Route based on query type and parameters"""
     if query_type == "code_review":
-        return code_review_chain.run(
-            language=kwargs.get("language", "Python"),
-            code=kwargs.get("code", "")
-        )
+        return code_review_chain.invoke({
+            "language": kwargs.get("language", "Python"),
+            "code": kwargs.get("code", "")
+        })
     elif query_type == "explanation":
-        return explanation_chain.run(
-            concept=kwargs.get("concept", ""),
-            style=kwargs.get("style", "simple")
-        )
+        return explanation_chain.invoke({
+            "concept": kwargs.get("concept", ""),
+            "style": kwargs.get("style", "simple")
+        })
     elif query_type == "technical":
-        return technical_chain.run(kwargs.get("query", ""))
+        return technical_chain.invoke({"query": kwargs.get("query", "")})
     else:
-        return simple_chain.run(kwargs.get("query", ""))
+        return simple_chain.invoke({"query": kwargs.get("query", "")})
 
 print("Advanced routing examples:")
 print("\n1. Code Review:")
@@ -170,25 +170,22 @@ result = smart_router(
 print(f"{result}\n")
 
 print("=== Sequential Chain with Routing ===")
-# Combine routing with sequential processing
+# Combine routing with sequential processing using LCEL
 
 # Step 1: Determine query type
 classify_prompt = ChatPromptTemplate.from_messages([
     ("human", "Classify this query as one of: code, explanation, creative.\n\nQuery: {query}"),
 ])
-classify_chain = LLMChain(llm=llm, prompt=classify_prompt, output_key="query_type")
+classify_chain = classify_prompt | llm | StrOutputParser()
 
-# Step 2: Route based on type and process
-# This is a simplified example - in practice you'd use the classification result
-routing_chain = SequentialChain(
-    chains=[classify_chain],
-    input_variables=["query"],
-    output_variables=["query_type"],
-    verbose=True
-)
+# Use the classification chain
+query = "How does recursion work in programming?"
+classification = classify_chain.invoke({"query": query})
+print(f"Query: {query}")
+print(f"Classified as: {classification}\n")
 
-result = routing_chain({"query": "How does recursion work in programming?"})
-print(f"Classified as: {result['query_type']}\n")
+# Note: In practice, you would parse the classification result and route accordingly
+# This demonstrates the sequential pattern with LCEL
 
 print("Tutorial complete! You've learned about routing and conditional chain execution.")
 

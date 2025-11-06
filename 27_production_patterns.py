@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 from typing import Optional
 import logging
 
@@ -90,7 +90,7 @@ class ProductionLLMChain:
             prompt = ChatPromptTemplate.from_messages([
                 ("human", prompt_template),
             ])
-            self.chain = LLMChain(llm=self.llm, prompt=prompt)
+            self.chain = prompt | self.llm | StrOutputParser()
             logger.info("Chain initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize chain: {e}")
@@ -103,7 +103,7 @@ class ProductionLLMChain:
         for attempt in range(max_retries):
             try:
                 logger.info(f"Attempt {attempt + 1}/{max_retries}")
-                result = self.chain.run(**inputs)
+                result = self.chain.invoke(inputs)
                 logger.info("Chain execution successful")
                 return result
             except Exception as e:
