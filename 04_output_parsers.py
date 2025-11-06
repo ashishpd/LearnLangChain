@@ -19,8 +19,8 @@ from typing import List
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
-from langchain.output_parsers.json import SimpleJsonOutputParser
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers.json import SimpleJsonOutputParser
 from pydantic import BaseModel, Field
 
 # Load environment variables
@@ -76,19 +76,26 @@ for lang in parsed_data.languages:
     print(f"  - {lang.name} ({lang.year_created}): {lang.primary_use} - Rank: {lang.popularity_rank}")
 print()
 
-print("=== Output Fixing Parser (Error Recovery) ===")
-# OutputFixingParser can fix parsing errors automatically
-fixing_parser = OutputFixingParser.from_llm(parser=pydantic_parser, llm=llm)
-
-# This parser will attempt to fix malformed outputs
-prompt_with_error = ChatPromptTemplate.from_messages([
-    ("system", "Return data about a book. {format_instructions}"),
-    ("human", "Tell me about the book '1984' by George Orwell."),
-]).partial(format_instructions=pydantic_parser.get_format_instructions())
-
-# Note: This is a demo. In practice, fixing_parser handles parse errors
-response = llm.invoke(prompt_with_error.format_messages())
-print(f"Response length: {len(response.content)} characters\n")
+print("=== Error Handling in Parsing ===")
+# When parsing fails, you can catch exceptions and handle them
+try:
+    # Attempt to parse a response
+    prompt_with_error = ChatPromptTemplate.from_messages([
+        ("system", "Return data about a book. {format_instructions}"),
+        ("human", "Tell me about the book '1984' by George Orwell."),
+    ]).partial(format_instructions=pydantic_parser.get_format_instructions())
+    
+    response = llm.invoke(prompt_with_error.format_messages())
+    # Try to parse - if it fails, we catch the exception
+    try:
+        parsed = pydantic_parser.parse(response.content)
+        print(f"Successfully parsed: {parsed}\n")
+    except Exception as e:
+        print(f"Parsing error occurred: {type(e).__name__}")
+        print(f"Response content: {response.content[:200]}...")
+        print("Note: In production, you could use error recovery strategies here.\n")
+except Exception as e:
+    print(f"Error during parsing demonstration: {e}\n")
 
 print("=== Custom Parser for Specific Format ===")
 # Create a custom parser for a specific format
