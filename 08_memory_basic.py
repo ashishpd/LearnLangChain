@@ -9,14 +9,27 @@ This tutorial demonstrates:
 
 Prerequisites:
 - Understanding of chains and prompts
+
+Note: This tutorial uses ConversationChain which is deprecated in favor of 
+RunnableWithMessageHistory. The examples here work but show deprecation warnings.
+For production code, migrate to RunnableWithMessageHistory with LCEL patterns.
 """
 
 import os
+import warnings
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_classic.memory import ConversationBufferMemory
 from langchain_classic.chains import ConversationChain
 from langchain_core.prompts import PromptTemplate
+
+# Suppress deprecation warnings for tutorial purposes
+# In production, migrate to RunnableWithMessageHistory
+try:
+    from langchain_core._api import LangChainDeprecationWarning
+    warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+except ImportError:
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
 
 # Load environment variables
 load_dotenv()

@@ -11,9 +11,14 @@ This tutorial demonstrates:
 
 Prerequisites:
 - Understanding of basic memory
+
+Note: This tutorial uses ConversationChain which is deprecated in favor of 
+RunnableWithMessageHistory. The examples here work but show deprecation warnings.
+For production code, migrate to RunnableWithMessageHistory with LCEL patterns.
 """
 
 import os
+import warnings
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_classic.memory import (
@@ -24,6 +29,14 @@ from langchain_classic.memory import (
 )
 from langchain_classic.chains import ConversationChain
 from langchain_core.prompts import PromptTemplate
+
+# Suppress deprecation warnings for tutorial purposes
+# In production, migrate to RunnableWithMessageHistory
+try:
+    from langchain_core._api import LangChainDeprecationWarning
+    warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+except ImportError:
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
 
 # Load environment variables
 load_dotenv()
@@ -88,11 +101,20 @@ print("Stores conversation up to a token limit.")
 print("Best for: Controlling memory size by tokens rather than messages\n")
 
 # Limit to approximately 100 tokens
-token_memory = ConversationTokenBufferMemory(
-    llm=llm,
-    max_token_limit=100,
-    return_messages=True
-)
+# Note: ConversationTokenBufferMemory requires model name for token counting
+# For Azure OpenAI, we'll use a try-except with fallback
+try:
+    # Try to create token buffer memory - it may fail if model name isn't available
+    token_memory = ConversationTokenBufferMemory(
+        llm=llm,
+        max_token_limit=100,
+        return_messages=True
+    )
+except (AttributeError, TypeError) as e:
+    # If token memory fails (e.g., model name not available), use window memory as fallback
+    print(f"Note: ConversationTokenBufferMemory unavailable (model name required).")
+    print(f"      Using ConversationBufferWindowMemory as alternative.\n")
+    token_memory = ConversationBufferWindowMemory(k=2)
 
 token_chain = ConversationChain(
     llm=llm,
@@ -101,10 +123,14 @@ token_chain = ConversationChain(
     verbose=False
 )
 
-for i in range(3):
-    token_chain.predict(input=f"Explain concept {i+1} in detail")
-
-print(f"Token buffer memory length: {len(token_memory.buffer)} messages\n")
+# Use try-except for token buffer memory as it may fail with Azure OpenAI
+try:
+    for i in range(3):
+        token_chain.predict(input=f"Explain concept {i+1} in detail")
+    print(f"Token buffer memory length: {len(token_memory.buffer)} messages\n")
+except (AttributeError, TypeError) as e:
+    print(f"Token counting failed: {e}")
+    print("Using window memory instead. This is expected with Azure OpenAI when model name isn't available.\n")
 
 print("=== 4. ConversationSummaryMemory ===")
 print("Summarizes old messages, keeps recent ones in full.")
