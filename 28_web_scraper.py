@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType, Tool
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 import requests
 from bs4 import BeautifulSoup

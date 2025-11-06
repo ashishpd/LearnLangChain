@@ -16,11 +16,10 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain.chains.question_answering import load_qa_chain
-from langchain.chains.retrieval_qa.prompt import QA_PROMPT
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 import shutil
 
 # Load environment variables
@@ -120,20 +119,32 @@ CITATION_PROMPT = PromptTemplate(
     input_variables=["context", "question"]
 )
 
-qa_with_citations = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
-    chain_type_kwargs={"prompt": CITATION_PROMPT},
-    return_source_documents=True,
+# Helper function to format documents
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# Create retriever and RAG chain
+citation_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+qa_with_citations = (
+    {
+        "context": citation_retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | CITATION_PROMPT
+    | llm
+    | StrOutputParser()
 )
 
 print("Testing citation-based RAG:")
-result = qa_with_citations({"query": "How do chains and agents work in LangChain?"})
-print(f"Question: How do chains and agents work in LangChain?")
-print(f"\nAnswer: {result['result']}")
+question = "How do chains and agents work in LangChain?"
+answer = qa_with_citations.invoke(question)
+source_documents = citation_retriever.invoke(question)
+
+print(f"Question: {question}")
+print(f"\nAnswer: {answer}")
 print(f"\nSource documents:")
-for i, doc in enumerate(result['source_documents'], 1):
+for i, doc in enumerate(source_documents, 1):
     print(f"  {i}. Section: {doc.metadata.get('section', 'N/A')}, "
           f"Page: {doc.metadata.get('page', 'N/A')}")
     print(f"     Content: {doc.page_content[:100]}...")
@@ -186,17 +197,22 @@ STRUCTURED_PROMPT = PromptTemplate(
     input_variables=["context", "question"]
 )
 
-structured_qa = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
-    chain_type_kwargs={"prompt": STRUCTURED_PROMPT},
-    return_source_documents=True,
+structured_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+structured_qa = (
+    {
+        "context": structured_retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | STRUCTURED_PROMPT
+    | llm
+    | StrOutputParser()
 )
 
-result = structured_qa({"query": "Explain the relationship between LangChain components and RAG"})
-print(f"Question: Explain the relationship between LangChain components and RAG")
-print(f"\nAnswer: {result['result'][:300]}...\n")
+question = "Explain the relationship between LangChain components and RAG"
+answer = structured_qa.invoke(question)
+print(f"Question: {question}")
+print(f"\nAnswer: {answer[:300]}...\n")
 
 print("=== Metadata Filtering for Targeted Retrieval ===")
 # Filter by metadata to narrow search
@@ -205,15 +221,30 @@ filtered_retriever = vectorstore.as_retriever(
     search_kwargs={"k": 2, "filter": {"source": "langchain_docs"}}
 )
 
-filtered_qa = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=filtered_retriever,
-    return_source_documents=True,
+# Create prompt for filtered QA
+filtered_prompt = PromptTemplate(
+    template="""Answer the question based on the provided context.
+
+Context: {context}
+
+Question: {question}
+
+Answer:""",
+    input_variables=["context", "question"]
 )
 
-result = filtered_qa({"query": "What are the main components of LangChain?"})
-print(f"Answer: {result['result']}\n")
+filtered_qa = (
+    {
+        "context": filtered_retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | filtered_prompt
+    | llm
+    | StrOutputParser()
+)
+
+answer = filtered_qa.invoke("What are the main components of LangChain?")
+print(f"Answer: {answer}\n")
 
 print("=== Advanced RAG Patterns Summary ===")
 print("""

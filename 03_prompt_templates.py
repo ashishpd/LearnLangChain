@@ -14,8 +14,7 @@ Prerequisites:
 import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.prompts.chat import SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 # Load environment variables
 load_dotenv()
@@ -102,7 +101,7 @@ def create_review_template(product_type: str) -> ChatPromptTemplate:
     """Create a product review template dynamically"""
     return ChatPromptTemplate.from_messages([
         ("system", f"You are an expert reviewer of {product_type}."),
-        ("human", "Review this {product_type}:\n{description}\n\nProvide pros and cons."),
+        ("human", f"Review this {product_type}:\n{{description}}\n\nProvide pros and cons."),
     ])
 
 # Use the dynamic template

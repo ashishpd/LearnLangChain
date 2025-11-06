@@ -18,7 +18,7 @@ import json
 from typing import List
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
 from langchain.output_parsers.json import SimpleJsonOutputParser
 from pydantic import BaseModel, Field

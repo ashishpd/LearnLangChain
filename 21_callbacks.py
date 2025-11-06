@@ -18,7 +18,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks import StdOutCallbackHandler
 from typing import Any, Dict, List
 from langchain.chains import LLMChain
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 # Load environment variables
 load_dotenv()

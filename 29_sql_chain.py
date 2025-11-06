@@ -18,7 +18,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain.agents import create_sql_agent
 from langchain.agents.agent_toolkits import create_sql_agent
 from langchain.sql_database import SQLDatabase
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 # Load environment variables

@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain.agents import AgentExecutor
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from typing import Optional
 
 # Load environment variables

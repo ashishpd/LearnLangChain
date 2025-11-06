@@ -14,7 +14,7 @@ Prerequisites:
 import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain, SequentialChain
 from langchain.callbacks import StdOutCallbackHandler
 

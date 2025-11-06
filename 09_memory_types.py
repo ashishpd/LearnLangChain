@@ -23,7 +23,7 @@ from langchain.memory import (
     ConversationTokenBufferMemory,
 )
 from langchain.chains import ConversationChain
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 # Load environment variables
 load_dotenv()

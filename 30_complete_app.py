@@ -15,10 +15,11 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 from typing import List, Dict
 import shutil
 
@@ -148,12 +149,21 @@ PROMPT = ChatPromptTemplate(
     input_variables=["context", "question"]
 )
 
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
-    chain_type_kwargs={"prompt": PROMPT},
-    return_source_documents=True,
+# Create retriever
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+# Create RAG chain using LCEL (LangChain Expression Language)
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+qa_chain = (
+    {
+        "context": retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | PROMPT
+    | llm
+    | StrOutputParser()
 )
 
 print("RAG chain created\n")
@@ -170,6 +180,7 @@ class DocumentQAApp:
         self.persist_directory = persist_directory
         self.vectorstore = None
         self.qa_chain = None
+        self.retriever = None
     
     def initialize(self, documents: List[Document]):
         """Initialize with documents"""
@@ -202,13 +213,26 @@ Provide a detailed answer:""",
             input_variables=["context", "question"]
         )
         
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.vectorstore.as_retriever(search_kwargs={"k": 3}),
-            chain_type_kwargs={"prompt": prompt},
-            return_source_documents=True,
+        # Create retriever
+        retriever = self.vectorstore.as_retriever(search_kwargs={"k": 3})
+        
+        # Helper function to format documents
+        def format_docs(docs):
+            return "\n\n".join(doc.page_content for doc in docs)
+        
+        # Create RAG chain using LCEL
+        self.qa_chain = (
+            {
+                "context": retriever | format_docs,
+                "question": RunnablePassthrough(),
+            }
+            | prompt
+            | self.llm
+            | StrOutputParser()
         )
+        
+        # Store retriever for source documents
+        self.retriever = retriever
         
         print(f"Application initialized with {len(chunks)} document chunks")
     
@@ -218,16 +242,21 @@ Provide a detailed answer:""",
             return {"error": "Application not initialized"}
         
         try:
-            result = self.qa_chain({"query": question})
+            # Get answer from chain
+            answer = self.qa_chain.invoke(question)
+            
+            # Get source documents
+            source_documents = self.retriever.invoke(question)
+            
             return {
                 "question": question,
-                "answer": result["result"],
+                "answer": answer,
                 "sources": [
                     {
                         "content": doc.page_content[:100] + "...",
                         "metadata": doc.metadata
                     }
-                    for doc in result["source_documents"]
+                    for doc in source_documents
                 ]
             }
         except Exception as e:

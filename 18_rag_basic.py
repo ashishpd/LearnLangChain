@@ -15,9 +15,10 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 import shutil
 
 # Load environment variables
@@ -95,14 +96,36 @@ vectorstore = Chroma.from_documents(
 
 print(f"Vector store created with {len(documents)} documents\n")
 
-print("=== Basic RAG with RetrievalQA ===")
-# RetrievalQA chain combines retrieval and QA
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",  # "stuff" means put all retrieved docs in prompt
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 2}),  # Retrieve top 2 docs
-    return_source_documents=True,  # Return source docs for citation
-    verbose=True,
+print("=== Basic RAG with LCEL ===")
+# Create retriever and RAG chain using LCEL (LangChain Expression Language)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+
+# Helper function to format documents
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# Create basic prompt
+basic_prompt = PromptTemplate(
+    template="""Use the following pieces of context to answer the question.
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+Context: {context}
+
+Question: {question}
+
+Answer:""",
+    input_variables=["context", "question"]
+)
+
+# Create RAG chain
+qa_chain = (
+    {
+        "context": retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | basic_prompt
+    | llm
+    | StrOutputParser()
 )
 
 print("=== Example Questions ===")
@@ -117,11 +140,15 @@ for question in questions:
     print(f"Question: {question}")
     print('='*60)
     
-    result = qa_chain({"query": question})
+    # Get answer
+    answer = qa_chain.invoke(question)
     
-    print(f"\nAnswer: {result['result']}")
-    print(f"\nSources ({len(result['source_documents'])}):")
-    for i, doc in enumerate(result['source_documents'], 1):
+    # Get source documents
+    source_documents = retriever.invoke(question)
+    
+    print(f"\nAnswer: {answer}")
+    print(f"\nSources ({len(source_documents)}):")
+    for i, doc in enumerate(source_documents, 1):
         print(f"  {i}. {doc.page_content[:80]}...")
         print(f"     Source: {doc.metadata.get('source', 'unknown')}")
 
@@ -143,17 +170,21 @@ PROMPT = PromptTemplate(
     input_variables=["context", "question"]
 )
 
-custom_qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
-    chain_type_kwargs={"prompt": PROMPT},
-    return_source_documents=True,
+custom_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+custom_qa_chain = (
+    {
+        "context": custom_retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | PROMPT
+    | llm
+    | StrOutputParser()
 )
 
 print("Testing custom prompt:")
-result = custom_qa_chain({"query": "Explain how RAG improves LLM responses"})
-print(f"Answer: {result['result']}\n")
+answer = custom_qa_chain.invoke("Explain how RAG improves LLM responses")
+print(f"Answer: {answer}\n")
 
 print("=== RAG Components Breakdown ===")
 print("""
@@ -195,16 +226,31 @@ mmr_retriever = vectorstore.as_retriever(
     search_kwargs={"k": 3, "lambda_mult": 0.5}
 )
 
-mmr_qa = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=mmr_retriever,
-    return_source_documents=True,
+# Create prompt for MMR
+mmr_prompt = PromptTemplate(
+    template="""Use the following pieces of context to answer the question.
+
+Context: {context}
+
+Question: {question}
+
+Answer:""",
+    input_variables=["context", "question"]
 )
 
-result = mmr_qa({"query": "What are the key components of LangChain and RAG?"})
+mmr_qa = (
+    {
+        "context": mmr_retriever | format_docs,
+        "question": RunnablePassthrough(),
+    }
+    | mmr_prompt
+    | llm
+    | StrOutputParser()
+)
+
+answer = mmr_qa.invoke("What are the key components of LangChain and RAG?")
 print(f"Question: What are the key components of LangChain and RAG?")
-print(f"Answer: {result['result'][:200]}...\n")
+print(f"Answer: {answer[:200]}...\n")
 
 print("=== RAG Best Practices ===")
 print("""
